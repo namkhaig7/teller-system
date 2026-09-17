@@ -1,0 +1,23 @@
+services:
+  bankserver-api:
+    build:
+      context: .
+      dockerfile: BankServer.API/Dockerfile
+    ports:
+      - "5100:8080" 
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  currencyboard:
+    build:
+      context: .
+      dockerfile: CurrencyBoard.Blazor/Dockerfile
+    ports:
+      - "5200:8080" 
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+      - ASPNETCORE_ENVIRONMENT=Development
+      - BankServerApi__BaseUrl=http://bankserver-api:8080
+    depends_on:
+      - bankserver-api

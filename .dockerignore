@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+.git/
+.gitignore
+.dockerignore
+CLAUDE.md
+NumberDispenser.WinForms/
+TellerApp.WinForms/
+BankServer.API.Tests/

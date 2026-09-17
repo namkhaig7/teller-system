@@ -1,0 +1,27 @@
+## .NET / Visual Studio
+bin/
+obj/
+*.user
+.vs/
+
+## Rider / VS Code
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+## Test results
+[Tt]est[Rr]esult*/
+*.trx
+
+## Local databases (SQLite dev DBs)
+*.db
+*.db-shm
+*.db-wal
+
+## Logs
+*.log
+
+## OS junk
+Thumbs.db
+.DS_Store
+CLAUDE.md

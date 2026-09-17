@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="BankServer.API.Tests/BankServer.API.Tests.csproj" />
+  <Project Path="BankServer.API/BankServer.API.csproj" />
+  <Project Path="BankServer.Shared/BankServer.Shared.csproj" />
+  <Project Path="CurrencyBoard.Blazor/CurrencyBoard.Blazor.csproj" />
+  <Project Path="NumberDispenser.WinForms/NumberDispenser.WinForms.csproj" />
+  <Project Path="TellerApp.WinForms/TellerApp.WinForms.csproj" />
+</Solution>
