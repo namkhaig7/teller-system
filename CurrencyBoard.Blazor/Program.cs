@@ -1,3 +1,4 @@
+using BankServer.Shared;
 using CurrencyBoard.Blazor.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +6,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddHttpClient<BankApiClient>(client =>
+{
+    client.BaseAddress = new Uri(ApiConfig.BaseUrl);
+});
 
 var app = builder.Build();
 

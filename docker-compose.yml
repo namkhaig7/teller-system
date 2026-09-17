@@ -1,23 +1,41 @@
 services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=bankserver
+      - POSTGRES_USER=bankserver
+      - POSTGRES_PASSWORD=bankserver_dev_pw
+    ports:
+      - "5432:5432" # so the API can also be run natively (outside Docker) against the same DB
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./BankServer.API/Data/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
   bankserver-api:
     build:
       context: .
       dockerfile: BankServer.API/Dockerfile
     ports:
-      - "5100:8080" 
+      - "5100:8080"
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__Postgres=Host=postgres;Port=5432;Database=bankserver;Username=bankserver;Password=bankserver_dev_pw
+    depends_on:
+      - postgres
 
   currencyboard:
     build:
       context: .
       dockerfile: CurrencyBoard.Blazor/Dockerfile
     ports:
-      - "5200:8080" 
+      - "5200:8080"
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ASPNETCORE_ENVIRONMENT=Development
-      - BankServerApi__BaseUrl=http://bankserver-api:8080
+      - BANKSERVER_API_URL=http://bankserver-api:8080
     depends_on:
       - bankserver-api
+
+volumes:
+  postgres-data:

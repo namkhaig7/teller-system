@@ -46,6 +46,8 @@ writing code.
 | Currency board rendering | **Blazor Server**, global interactive render mode | Simplest realtime story (no WASM/CORS complexity) and matches the professor's own demo structure (`ProductsFront`). |
 | Solution format | Classic `.sln` via `dotnet sln` (professor used `.slnx`, either works — `.sln` is more predictable from the CLI) | |
 | Running everything on one machine | `BankServer.API` and `CurrencyBoard.Blazor` run in **Docker containers** (via `docker-compose.yml`); `NumberDispenser.WinForms` and `TellerApp.WinForms` run **natively** on the host, pointed at `http://localhost:5100` | WinForms apps need a visible Windows desktop to draw their window — a container has no screen, so they can't usefully run inside one. The two server processes (API + Blazor) are ordinary headless services and containerize fine. |
+| Database | **PostgreSQL**, containerized (also part of `docker-compose.yml`) | User's choice. Schema/seed data lives in `BankServer.API/Data/init.sql`, auto-run once by the official postgres image on first container start — no EF migrations needed. |
+| DB access | **Raw ADO.NET via `Npgsql`**, small `Repo` classes — not Entity Framework | Matches the professor's own example exactly (`ProductRepo.cs` uses raw `System.Data.SQLite`, hand-written SQL, no ORM). Same idiom, just Postgres instead of SQLite. Easiest to defend line-by-line in a viva; no change-tracking/migration machinery to explain. |
 
 ## Solution structure
 
@@ -65,10 +67,12 @@ All client projects (`NumberDispenser.WinForms`, `TellerApp.WinForms`, `Currency
 reference `BankServer.Shared` so DTOs are never duplicated/hand-typed twice. `BankServer.API.Tests`
 references `BankServer.API` + `BankServer.Shared`.
 
-**Status as of this writing:** solution/project skeleton scaffolded and building cleanly
-(`dotnet build BankServer.slnx`). No domain logic yet — `BankServer.API` still has the default
-`/weatherforecast` template endpoint, and the client apps are template blank forms/pages. Next
-work is the actual domain model and endpoints (see Roadmap).
+**Status as of this writing:** `BankServer.API` is functionally complete and **verified working
+end-to-end** against real Postgres via `docker compose up --build` — tickets, call-next (+ hub
+negotiate), accounts, transfers (success + insufficient-funds), and rate updates were all
+exercised with real HTTP requests and the DB state checked after each. Queue concurrency is also
+proven by unit tests. The three client apps (`NumberDispenser.WinForms`, `TellerApp.WinForms`,
+`CurrencyBoard.Blazor`) are still template blank forms/pages — that's the next work (see Roadmap).
 
 ## Reference example
 
@@ -80,17 +84,27 @@ look recognizably like that, just extended with SignalR + the Channel queue + th
 
 ## Running everything on one machine
 
-- `docker-compose up --build` starts `BankServer.API` (host port **5100**) and `CurrencyBoard.Blazor`
-  (host port **5200**, open in a browser).
-- Inside the compose network, `CurrencyBoard.Blazor` reaches the API at `http://bankserver-api:8080`
-  (compose service name, set via the `BankServerApi__BaseUrl` env var in `docker-compose.yml` — read
-  this into config once the Blazor app actually calls the API/hub).
+`docker-compose.yml` has 3 services: `postgres`, `bankserver-api`, `currencyboard`.
+
+- `docker-compose up --build` starts all three: Postgres, `BankServer.API` (host port **5100**),
+  and `CurrencyBoard.Blazor` (host port **5200**, open in a browser).
+- Inside the compose network, containers reach each other by service name, not `localhost`:
+  `bankserver-api` connects to Postgres at `Host=postgres;...` and `currencyboard` reaches the API
+  at `http://bankserver-api:8080` (both set via env vars in `docker-compose.yml`).
+- Postgres also publishes port **5432** to the host, so `BankServer.API` can alternatively be run
+  **natively** (`dotnet run`, or F5 in the IDE) against the same database — useful for fast
+  edit/debug loops without rebuilding a Docker image every time. `appsettings.Development.json`
+  already has a `ConnectionStrings:Postgres` pointing at `localhost:5432` for this. Recommended
+  inner loop: `docker-compose up postgres` (just the DB), then run `BankServer.API` natively.
 - Run `NumberDispenser.WinForms` and `TellerApp.WinForms` normally from Visual Studio / `dotnet run`
   on the host (they can't run in a container — no desktop to draw a window on). Point them at
   `http://localhost:5100` for the API/SignalR hub.
 - Docker was **not installed** on the dev machine as of this setup — install Docker Desktop for
   Windows (needs WSL2 backend enabled) before `docker-compose up` will work. The Dockerfiles/
   compose file are written and ready; just untested against an actual daemon yet.
+- Dev-only credentials (`bankserver` / `bankserver_dev_pw`) are sitting in `docker-compose.yml` and
+  `appsettings.Development.json` in plain text. Fine for a local course project; just don't reuse
+  these anywhere real.
 
 ## Contract design (`BankServer.Shared`)
 
@@ -112,19 +126,53 @@ All 6 DTOs and the two hub client interfaces live in `BankServer.Shared/Dtos` an
       `ExchangeRateDto`/`UpdateExchangeRateRequestDto`, `CalledCustomerDto`) and SignalR hub contract
       — `IQueueDisplayClient`/`IRatesClient` (strongly-typed `Hub<T>` client interfaces, so a typo in
       a method name fails to compile instead of silently no-op'ing) + `HubRoutes` constants.
-- [ ] `BankServer.API`: in-memory (or SQLite, matching the professor's example) domain store for
-      accounts, tickets, exchange rates.
-- [ ] `BankServer.API`: `Channel<T>`-based queue + single background `IHostedService` consumer for
-      (a) "give me next ticket number" and (b) "process this transfer" — this is what makes both
-      operations safe under concurrent requests.
-- [ ] `BankServer.API`: SignalR hub(s) — one for number-display push updates, one (or shared) for
-      exchange-rate push updates.
-- [ ] `NumberDispenser.WinForms`: call WebAPI for "give me next number", display/"print" it.
-- [ ] `TellerApp.WinForms`: the 3 actions, wired to WebAPI + SignalR client.
-- [ ] `CurrencyBoard.Blazor`: read current rates via WebAPI on load, subscribe to SignalR hub for
-      live updates.
-- [ ] Unit tests per part, especially concurrency tests for the Channel-based queue (fire N
-      concurrent requests, assert no double-processing).
+- [x] PostgreSQL schema + seed data (`BankServer.API/Data/init.sql`) and `Npgsql` package wired up.
+- [x] `BankServer.API`: `Repo` classes (`AccountRepo`, `TicketRepo`, `ExchangeRateRepo`) over
+      Postgres via raw `Npgsql`, mirroring `ProductRepo.cs`'s style.
+- [x] `BankServer.API`: `Channel<Func<Task>>`-based queue (`Queueing/SerialRequestQueue.cs`) +
+      single background `RequestQueueProcessor : BackgroundService` consumer. `call-next` and
+      `transfer` requests are wrapped as work items and run through this; ticket issuance and
+      rate updates are single atomic DB statements so they bypass it (see code comments for why).
+- [x] `BankServer.API`: SignalR hubs — `QueueHub` (`IQueueDisplayClient`) and `RatesHub`
+      (`IRatesClient`), both push-only.
+- [x] `BankServer.API`: real minimal-API endpoints wired up in `Program.cs` (tickets, queue
+      call-next, accounts, transfers, rates) — `/weatherforecast` template endpoint is gone.
+- [x] Concurrency unit tests for `SerialRequestQueue` (`BankServer.API.Tests/Queueing/`) — proves
+      concurrent work items never overlap and a "read, pause, write" race (the transfer shape)
+      loses zero updates when run through the queue. 3/3 passing.
+- [x] `NumberDispenser.WinForms` (`KioskForm`): "Take a Number" button → `POST /api/tickets`,
+      shows the issued number large on screen; also subscribes to `QueueHub` so "now serving"
+      updates live the instant a teller calls the next customer. Launched against the live Docker
+      stack and confirmed no startup crash — button click behavior needs a human to verify (no UI
+      automation available here).
+- [x] `BankServer.Shared`: added `BankApiClient` (thin HTTP wrapper over every WebAPI endpoint)
+      and `ApiConfig.BaseUrl` (reads `BANKSERVER_API_URL` env var, defaults to
+      `http://localhost:5100`) — shared by all 3 client projects so the request/response
+      shapes and "where's the server" logic aren't duplicated 3 times.
+- [x] `TellerApp.WinForms` (`TellerForm`): 3-tab UI — call next customer (+ live "next waiting"
+      refresh), transfer (account lookup on tab-out, success/failure result), exchange rates
+      (`ListView` + update form). Subscribes to `RatesHub` so every open teller window stays in
+      sync when any teller changes a rate. Verified live against the Docker stack: rate change via
+      curl appeared in the running app instantly with no refresh; call-next, transfer, and account
+      lookup all confirmed working by the user.
+- [x] `CurrencyBoard.Blazor` (`Home.razor`): loads current rates via `BankApiClient` on
+      `OnInitializedAsync`, subscribes to `RatesHub` for live pushes (`InvokeAsync(StateHasChanged)`
+      to marshal back to the render thread — same idea as `Control.Invoke` in the WinForms apps).
+      Found and fixed a real bug while verifying against Docker: `docker-compose.yml` set an env
+      var named `BankServerApi__BaseUrl` for the container-to-container API URL, but
+      `ApiConfig.BaseUrl` only ever read `BANKSERVER_API_URL` — the names never matched, so inside
+      the container it silently fell back to `localhost:5100` (itself) and every API call failed
+      with connection-refused. Fixed by renaming the compose env var to match. Verified working
+      after the fix: rates render correctly via `BankApiClient` registered as a typed
+      `AddHttpClient<BankApiClient>` service in `Program.cs`.
+- [ ] Repo-level unit tests (need a real Postgres to run against — see note below) and endpoint
+      tests for `Program.cs`.
+- [x] `docker compose up --build` verified working: all 3 containers healthy, every endpoint
+      exercised against real Postgres (tickets, call-next, accounts, transfers incl.
+      insufficient-funds, rate updates), both hub negotiate endpoints respond, CurrencyBoard.Blazor
+      homepage loads. Docker Desktop install note: it installs per-user
+      (`%LOCALAPPDATA%\Programs\DockerDesktop`) and does **not** auto-launch after install/reboot —
+      start it manually (Start Menu → "Docker Desktop") before `docker compose up`.
 
 ## How to work with me (important — read before writing code)
 

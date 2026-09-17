@@ -1,3 +1,24 @@
+:root {
+    --bank-navy: #0b2545;
+    --bank-navy-light: #14395e;
+    --bank-gold: #c9a227;
+    --bank-bg: #f5f6f8;
+    --bank-card: #ffffff;
+    --bank-border: #dfe3e8;
+    --bank-text: #1b1b1b;
+    --bank-text-muted: #6b7280;
+    --bank-success: #1e7d32;
+    --bank-error: #b3261e;
+}
+
+html, body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--bank-bg);
+    color: var(--bank-text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
 h1:focus {
     outline: none;
 }
