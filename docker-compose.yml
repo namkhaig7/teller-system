@@ -6,7 +6,7 @@ services:
       - POSTGRES_USER=bankserver
       - POSTGRES_PASSWORD=bankserver_dev_pw
     ports:
-      - "5432:5432" # so the API can also be run natively (outside Docker) against the same DB
+      - "5432:5432" 
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./BankServer.API/Data/init.sql:/docker-entrypoint-initdb.d/init.sql:ro

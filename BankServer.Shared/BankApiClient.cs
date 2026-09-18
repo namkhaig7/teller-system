@@ -28,7 +28,7 @@ public class BankApiClient(HttpClient httpClient)
     public async Task<CalledCustomerDto?> CallNextAsync(int counterNumber, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync("/api/queue/call-next", new CallNextRequestDto(counterNumber), ct);
-        if (response.StatusCode == HttpStatusCode.NoContent) return null; // nobody waiting
+        if (response.StatusCode == HttpStatusCode.NoContent) return null; 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<CalledCustomerDto>(ct);
     }
