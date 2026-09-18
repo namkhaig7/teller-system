@@ -36,5 +36,4 @@ BankServer.API/              (solution: BankServer.slnx)
 ├── NumberDispenser.WinForms/  Дугаар олгогч
 ├── TellerApp.WinForms/        Теллер апп
 ├── CurrencyBoard.Blazor/      Валютын ханшийн дэлгэц
-└── 
 ```
