@@ -1,4 +1,3 @@
-using System.Globalization;
 using BankServer.Shared;
 using BankServer.Shared.Dtos;
 using BankServer.Shared.Hubs;
@@ -123,7 +122,7 @@ public partial class TellerForm : Form
         var from = txtFromAccount.Text.Trim();
         var to = txtToAccount.Text.Trim();
 
-        if (!decimal.TryParse(txtAmount.Text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var amount))
+        if (!AmountParser.TryParse(txtAmount.Text, out var amount))
         {
             lblTransferResult.ForeColor = BankColors.Error;
             lblTransferResult.Text = "Дүн буруу байна.";
@@ -181,12 +180,11 @@ public partial class TellerForm : Form
 
     private async Task UpdateRateAsync()
     {
-        var currencyCode = txtCurrencyCode.Text.Trim().ToUpperInvariant();
+        var parsed = RateInputParser.TryParse(
+            txtCurrencyCode.Text, txtBuyRate.Text, txtSellRate.Text,
+            out var currencyCode, out var buyRate, out var sellRate);
 
-        var buyOk = decimal.TryParse(txtBuyRate.Text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var buyRate);
-        var sellOk = decimal.TryParse(txtSellRate.Text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var sellRate);
-
-        if (currencyCode.Length == 0 || !buyOk || !sellOk)
+        if (!parsed)
         {
             lblRateStatus.Text = "Валют, авах ханш, зарах ханшийг зөв бөглөнө үү.";
             return;

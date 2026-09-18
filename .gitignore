@@ -13,7 +13,7 @@ obj/
 [Tt]est[Rr]esult*/
 *.trx
 
-## Local databases (SQLite dev DBs)
+## Local databases 
 *.db
 *.db-shm
 *.db-wal

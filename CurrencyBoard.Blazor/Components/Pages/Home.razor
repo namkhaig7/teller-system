@@ -15,11 +15,11 @@
 </header>
 
 <main class="board">
-    @if (_rates is null)
+    @if (_board is null)
     {
         <p class="board__loading">Ачааллаж байна...</p>
     }
-    else if (_rates.Count == 0)
+    else if (_board.Count == 0)
     {
         <p class="board__loading">Одоогоор ханш бүртгэгдээгүй байна.</p>
     }
@@ -36,7 +36,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var rate in _rates.Values.OrderBy(r => r.CurrencyCode))
+                    @foreach (var rate in _board.OrderedByCurrency())
                     {
                         <tr>
                             <td><span class="currency-badge">@rate.CurrencyCode</span></td>
@@ -57,7 +57,7 @@
 </main>
 
 @code {
-    private Dictionary<string, ExchangeRateDto>? _rates;
+    private RateBoardState? _board;
     private HubConnection? _hub;
     private string _status = string.Empty;
     private bool _isConnected;
@@ -65,7 +65,9 @@
     protected override async Task OnInitializedAsync()
     {
         var rates = await Api.GetRatesAsync();
-        _rates = rates.ToDictionary(r => r.CurrencyCode);
+        var board = new RateBoardState();
+        board.ReplaceAll(rates);
+        _board = board;
 
         _hub = new HubConnectionBuilder()
             .WithUrl(ApiConfig.BaseUrl + HubRoutes.Rates)
@@ -78,7 +80,7 @@
         // so StateHasChanged has to be marshalled back via InvokeAsync.
         _hub.On<ExchangeRateDto>(nameof(IRatesClient.RateChanged), rate =>
         {
-            _rates![rate.CurrencyCode] = rate;
+            board.Upsert(rate);
             InvokeAsync(StateHasChanged);
         });
 

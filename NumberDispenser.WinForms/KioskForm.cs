@@ -26,7 +26,7 @@ public partial class KioskForm : Form
         // "now serving" live without the kiosk having to poll for it.
         _queueHub.On<CalledCustomerDto>(nameof(IQueueDisplayClient.CustomerCalled), called =>
         {
-            Invoke(() => lblNowServing.Text = $"Одоо үйлчилж буй: №{called.TicketNumber} — {called.CounterNumber}-р цонх");
+            Invoke(() => lblNowServing.Text = NowServingFormatter.Format(called));
         });
 
         Load += async (_, _) => await ConnectToQueueHubAsync();
